@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>wasm synth</title>
+    <style>
+    </style>
+  </head>
+  <body>
+    <div id="root">hello wurld</div>
+    <button id="play" type="play">play</button>
+    <button id="pause" type="pause">pause</button>
+    <script src="output.js"></script>
+    <script type="text/javascript">
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      var source = audioCtx.createBufferSource();
+      var scriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
+      var playButton = document.getElementById("play");
+      var pauseButton = document.getElementById("pause");
+      var processAudio = Module.cwrap('processAudio', 'number', ['number']);
+
+      audioCtx.decodeAudioData(new ArrayBuffer(4096), function(buffer) {
+        myBuffer = buffer;
+        source.buffer = myBuffer;
+      }, function(e) {"Error with decoding audio data" + e.err});
+
+      scriptNode.onaudioprocess = function(audioProcessingEvent) {
+        var inputBuffer = audioProcessingEvent.inputBuffer;
+        var outputBuffer = audioProcessingEvent.outputBuffer;
+
+        for (var channel = 0; channel < outputBuffer.numberOfChannels; channel++) {
+          var inputData = inputBuffer.getChannelData(channel);
+          var outputData = outputBuffer.getChannelData(channel);
+
+          for (var sample = 0; sample < inputBuffer.length; sample++) {
+            outputData[sample] = processAudio(sample);
+          }
+        }
+      }
+
+      playButton.onclick = function() {
+        source.connect(scriptNode);
+        scriptNode.connect(audioCtx.destination);
+        source.start();
+      }
+
+      pauseButton.onclick = function() {
+        source.disconnect(scriptNode);
+        scriptNode.disconnect(audioCtx.destination);
+      }
+
+      source.onended = function() {
+        source.disconnect(scriptNode);
+        scriptNode.disconnect(audioCtx.destination);
+      }
+    </script>
+  </body>
+</html>
